@@ -19,7 +19,7 @@ def isdirty(f, depth, expect_stamp):
     if f.exitcode:
         debug('%s-- DIRTY (failed last time)\n', depth)
         return DIRTY
-    if not expect_stamp.is_missing() and f.stamp.is_missing():
+    if not expect_stamp.is_missing() and f.stamp.is_missing() and not f.stamp.runid():
         debug('%s-- DIRTY (never built)\n', depth)
         return DIRTY
     if f.stamp.is_old():
