@@ -33,7 +33,7 @@ def main_redo_delegate(redo_flavour, targets):
     from log import debug2
 
     if vars.TARGET:
-        f = state.File(name=vars.TARGET)
+        f = state.File(srcname=vars.TARGET)
         debug2('TARGET: %r %r %r\n', vars.STARTDIR, vars.PWD, vars.TARGET)
     else:
         f = None
@@ -47,7 +47,7 @@ def main_redo_ifchange(redo_flavour, targets):
     from log import debug2
 
     if vars.TARGET:
-        f = state.File(name=vars.TARGET)
+        f = state.File(srcname=vars.TARGET)
         debug2('TARGET: %r %r %r\n', vars.STARTDIR, vars.PWD, vars.TARGET)
     else:
         f = None
@@ -68,14 +68,14 @@ def main_redo_ifcreate(redo_flavour, targets):
             err('%s: error: %r already exists\n', redo_flavour, t)
             return 1
         else:
-            f.add_dep(state.File(name=t))
+            f.add_dep(state.File(srcname=t))
 
 def main_redo_always(redo_flavour, targets):
     import vars, state
 
     state.fix_chdir([])
     f = state.File(vars.TARGET)
-    f.add_dep(state.File(name=state.ALWAYS))
+    f.add_dep(state.File(srcname=state.ALWAYS))
 
 def main_redo_stamp(redo_flavour, targets):
     import os

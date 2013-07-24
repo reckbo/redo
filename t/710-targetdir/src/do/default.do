@@ -1,0 +1,6 @@
+echo CWD=$PWD >&2
+echo REDO_SOURCE_DIR=$REDO_SOURCE_DIR >&2
+echo REDO_TARGET_DIR=$REDO_TARGET_DIR >&2
+
+echo $$ >$3
+

@@ -140,21 +140,22 @@ class Lock:
         self.owned = False
 
 class File(object):
-    def __init__(self, name, context=None):
-        if name != ALWAYS and context:
-            name = os.path.join(context, name)
-        if name != ALWAYS and name.startswith('/'):
-            name = os.path.relpath(name, os.getcwd())
-        self.name = name
-        self.dir = os.path.split(self.name)[0]
-        if name != ALWAYS:
-            self.redo_dir = self._get_redodir(name)
+    def __init__(self, srcname):
+        if srcname != ALWAYS and srcname.startswith('/'):
+            srcname = os.path.relpath(srcname, vars.SOURCE_DIR)
+        self.sourcename = srcname
+        self.dir = os.path.split(self.sourcename)[0]
+        if srcname != ALWAYS:
+            self.redo_dir = self._get_redodir(srcname)
         self._dolock = None
         self.refresh()
+        self.targetfile = os.path.relpath(os.path.join(vars.TARGET_DIR, self.sourcename), os.getcwd())
+        self.sourcefile = os.path.relpath(os.path.join(vars.SOURCE_DIR, self.sourcename), os.getcwd())
+        self.is_always  = (srcname == ALWAYS)
         assert(isinstance(self.stamp, Stamp))
 
     def __repr__(self):
-        return 'state.File(%s)' % self.name
+        return 'state.File(%s)' % self.sourcename
 
     def _get_redodir(self, name):
         d = os.path.dirname(name)
@@ -183,7 +184,7 @@ class File(object):
             try:
                 with open(self.tmpfilename('parent'), "r") as f:
                     parent = f.read()
-                    parent = File(parent, self.dir)
+                    parent = File(os.path.join(self.dir, parent))
             except IOError:
                 return False
             else:
@@ -193,10 +194,10 @@ class File(object):
         return '%s.%s' % (os.path.join(self.redo_dir, self.basename()), filetype)
 
     def basename(self):
-        return os.path.basename(self.name)
+        return os.path.basename(self.sourcename)
 
     def dirname(self):
-        return os.path.dirname(self.name)
+        return os.path.dirname(self.sourcename)
 
     def printable_name(self):
         """Return the name relative to vars.STARTDIR, normalized.
@@ -209,7 +210,7 @@ class File(object):
         will be relative to the user's starting directory, regardless of
         which .do file we're in or the getcwd() of the moment.
         """
-        base = os.path.join(vars.PWD, self.name)
+        base = os.path.join(vars.PWD, self.sourcefile)
         base_full_dir = os.path.dirname(os.path.join(vars.STARTDIR, base))
         norm = os.path.normpath(base)
         norm_full_dir = os.path.dirname(os.path.join(vars.STARTDIR, norm))
@@ -221,21 +222,21 @@ class File(object):
         return base
 
     def refresh(self):
-        if self.name == ALWAYS:
+        if self.sourcename == ALWAYS:
             self.stamp_mtime = str(vars.RUNID)
             self.exitcode = 0
             self.deps = []
             self.is_generated = True
             self.stamp = Stamp(str(vars.RUNID))
             return
-        assert(not self.name.startswith('/'))
+        assert(not self.sourcename.startswith('/'))
         try:
             # read the state file
             f = open(self.tmpfilename('deps'))
         except IOError:
             try:
                 # okay, check for the file itself
-                st = os.stat(self.name)
+                st = os.stat(self.sourcename)
             except OSError:
                 # it doesn't exist at all yet
                 self.stamp_mtime = 0  # no stamp file
@@ -288,14 +289,14 @@ class File(object):
                     self.deps[i][0] = Stamp(auto_detect=self.deps[i][0])
 
     def exists(self):
-        return os.path.exists(self.name)
+        return os.path.exists(self.sourcename)
 
     def exists_not_dir(self):
-        return os.path.exists(self.name) and not os.path.isdir(self.name)
+        return os.path.exists(self.sourcename) and not os.path.isdir(self.sourcename)
 
     def forget(self):
         """Turn a 'target' file back into a 'source' file."""
-        debug3('forget(%s)\n', self.name)
+        debug3('forget(%s)\n', self.sourcename)
         unlink(self.tmpfilename('deps'))
 
     def _add(self, line):
@@ -337,12 +338,12 @@ class File(object):
         exist, creating the file is considered a "modified" event and will
         result in this target being rebuilt.
         """
-        if file.name == ALWAYS:
-            relname = file.name
+        if file.is_always:
+            relname = ALWAYS
         else:
-            relname = os.path.relpath(file.name, self.dir)
-        debug3('add-dep: %r < %r %r\n', self.name, file.stamp, relname)
-        assert('\n' not in file.name)
+            relname = os.path.relpath(file.targetfile, self.dir)
+        debug3('add-dep: %r < %r %r\n', self.sourcename, file.stamp, relname)
+        assert('\n' not in relname)
         assert(isinstance(file.stamp, Stamp))
         self._add('%s %s' % (file.stamp.csum_or_stamp(), relname))
 
@@ -356,7 +357,7 @@ class File(object):
             try: st_deps = os.stat(self.tmpfilename('deps'))
             except OSError: st_deps = False
         if st == None:
-            try: st = os.stat(self.name)
+            try: st = os.stat(self.sourcename)
             except OSError: st = False
 
         if runid == None and st_deps:
@@ -366,7 +367,7 @@ class File(object):
 
     def __eq__(self, other):
         try:
-            return os.path.realpath(self.name) == os.path.realpath(other.name)
+            return os.path.realpath(self.sourcename) == os.path.realpath(other.sourcename)
         except:
             return False
     

@@ -176,7 +176,7 @@ def print_log(t, recursive=False):
 
 def main(targets, toplevel=False):
     for t in targets:
-        f = state.File(name=t)
+        f = state.File(srcname=t)
         l = f.tmpfilename('log')
         try:
             # Try to get lock to tell if the process is still running. If we

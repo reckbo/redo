@@ -8,7 +8,7 @@ DIRTY = 1
 # FIXME: sanitize the return values of this function into a tuple instead.
 def isdirty(f, depth, expect_stamp):
     assert(isinstance(expect_stamp, state.Stamp))
-    debug('%s?%s\n', depth, f.name)
+    debug('%s?%s\n', depth, f.sourcename)
 
     debug3('%sexpect: %r\n', depth, expect_stamp)
     debug3('%sold:    %r\n', depth, f.stamp)
@@ -60,7 +60,7 @@ def isdirty(f, depth, expect_stamp):
                 debug('%s-- DIRTY (always)\n', depth)
                 dirty = DIRTY
         else:
-            f2 = state.File(f2, f.dir)
+            f2 = state.File(os.path.join(f.dir, f2))
             sub = isdirty(f2, depth = depth + '  ',
                           expect_stamp = stamp2)
             if sub:

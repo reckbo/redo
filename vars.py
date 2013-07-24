@@ -14,6 +14,12 @@ STARTDIR = os.environ.get('REDO_STARTDIR', '')
 # symlinks that make a/b/../c not equal to a/c.
 PWD = os.environ.get('REDO_PWD', '')
 
+# The path where .do files are searched
+SOURCE_DIR = os.path.realpath(os.environ.get('REDO_SOURCE_DIR', '.'))
+
+# The path where result of build is placed
+TARGET_DIR = os.path.realpath(os.environ.get('REDO_TARGET_DIR', '.'))
+
 # The path to the target currently being built, relative to PWD.
 TARGET = os.environ.get('REDO_TARGET', '')
 

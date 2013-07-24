@@ -34,12 +34,13 @@ def _possible_do_files(t):
                    subdir, os.path.join(subdir, basename), ext)
 
 def _possible_do_files_in_do_dir(t):
-    for dodir,dofile,basedir,basename,ext in _possible_do_files(t):
-        yield (dodir,dofile,basedir,basename,ext)
-        yield (dodir+"/do", dofile, "../"+basedir, basename, ext)
+    for dosrcdir,dofile,basedir,basename,ext in _possible_do_files(t):
+        yield (dosrcdir,dosrcdir,dofile,basedir,basename,ext)
+        dodir = dosrcdir + "/do" if len(dosrcdir) else "do"
+        yield (dosrcdir, dodir, dofile, "../"+basedir, basename, ext)
 
 def _find_do_file(f):
-    for dodir,dofile,basedir,basename,ext in _possible_do_files_in_do_dir(f.name):
+    for dosrcdir,dodir,dofile,basedir,basename,ext in _possible_do_files_in_do_dir(f.sourcefile):
         if dodir and not os.path.isdir(dodir):
             # we don't want to normpath() unless we have no other choice.
             # otherwise we could have odd behaviour with symlinks (ie.
@@ -49,14 +50,14 @@ def _find_do_file(f):
             # create the sub-path.
             dodir = os.path.normpath(dodir)
         dopath = os.path.join(dodir, dofile)
-        debug2('%s: %s:%s ?\n', f.name, dodir, dofile)
+        debug2('%s: %s:%s ?\n', f.sourcename, dodir, dofile)
         dof = state.File(dopath)
         if os.path.exists(dopath):
             f.add_dep(dof)
-            return dodir,dofile,basedir,basename,ext
+            return dosrcdir,dodir,dofile,basedir,basename,ext
         else:
             f.add_dep(dof)
-    return None,None,None,None,None
+    return None,None,None,None,None,None
 
 
 def _try_stat(filename):
@@ -68,17 +69,17 @@ def _try_stat(filename):
         else:
             raise
 
-def _interpreter_locations(dodir):
-    dodir = os.path.realpath(dodir)
-    dirbits = dodir.split('/')
+def _interpreter_locations(dosrcdir):
+    dosrcdir = os.path.realpath(dosrcdir)
+    dirbits = dosrcdir.split('/')
     for i in range(len(dirbits), -1, -1):
         d = join('/', dirbits[:i])
         yield(d)
         yield(d + "/do")
     
 
-def _find_interpreter(dodir, name):
-    for d in _interpreter_locations(dodir):
+def _find_interpreter(dosrcdir, name):
+    for d in _interpreter_locations(dosrcdir):
         interp = os.path.join(d, name)
         if (os.path.exists(interp) and
             not os.path.isdir(interp) and
@@ -99,7 +100,7 @@ class BuildJob:
     def prepare(self):
         assert self.target.dolock().owned == state.LOCK_EX
         self.target.build_starting()
-        self.before_t = _try_stat(self.target.name)
+        self.before_t = _try_stat(self.target.sourcefile) or _try_stat(self.target.targetfile)
 
         newstamp = self.target.read_stamp()
         if newstamp.is_override_or_missing(self.target):
@@ -125,17 +126,17 @@ class BuildJob:
             else:
                 warn('%s: exists and not marked as generated; not redoing.\n',
                      self.target.printable_name())
-                debug2('-- static (%r)\n', self.target.name)
+                debug2('-- static (%r)\n', self.target.sourcename)
                 return 0
 
-        (self.dodir, self.dofile, self.dobasedir, self.dobasename, self.doext) = _find_do_file(self.target)
+        (self.dosrcdir, self.dodir, self.dofile, self.dobasedir, self.dobasename, self.doext) = _find_do_file(self.target)
         if not self.dofile:
             if newstamp.is_missing():
-                err('no rule to make %r\n', self.target.name)
+                err('no rule to make %r\n', self.target.sourcename)
                 return 1
             else:
                 self.target.forget()
-                debug2('-- forget (%r)\n', self.target.name)
+                debug2('-- forget (%r)\n', self.target.sourcename)
                 return 0  # no longer a generated target, but exists, so ok
 
         self.outdir = self._mkoutdir()
@@ -162,10 +163,11 @@ class BuildJob:
         return outdir
 
     def build(self):
-        debug3('running build job for %r\n', self.target.name)
+        debug3('running build job for %r\n', self.target.sourcename)
 
-        (dodir, dofile, basedir, basename, ext) = (
-            self.dodir, self.dofile, self.dobasedir, self.dobasename, self.doext)
+        (dosrcdir, dodir, dofile, basedir, basename, ext) = (
+            self.dosrcdir, self.dodir, self.dofile, self.dobasedir, self.dobasename, self.doext)
+        if not dosrcdir: dosrcdir = '.'
 
         # this will run in the dofile's directory, so use only basenames here
         if vars.OLD_ARGS:
@@ -189,7 +191,7 @@ class BuildJob:
         if firstline.startswith('#!.../'):
             _, _, interp_argv = firstline.partition("/")
             interp_argv = interp_argv.split(' ')
-            interpreter = _find_interpreter(self.dodir, interp_argv[0])
+            interpreter = _find_interpreter(dosrcdir, interp_argv[0])
             if not interpreter:
                 err('%s unable to find interpreter %s.\n', self.dofile, interp_argv[0])
                 os._exit(208)
@@ -198,15 +200,16 @@ class BuildJob:
         elif firstline.startswith('#!/'):
             argv[0:2] = firstline[2:].split(' ')
         log('%s\n', self.target.printable_name())
-        log_cmd("redo", self.target.name + "\n")
+        log_cmd("redo", self.target.sourcename + "\n")
 
         try:
-            dn = dodir
-            os.environ['REDO_PWD'] = os.path.join(vars.PWD, dn)
+            os.environ['REDO_SOURCE_DIR'] = os.path.realpath(dosrcdir)
+            os.environ['REDO_TARGET_DIR'] = os.path.realpath(os.path.join(vars.TARGET_DIR, os.path.relpath(dosrcdir, vars.SOURCE_DIR)))
+            os.environ['REDO_PWD'] = os.path.join(vars.PWD, dodir)
             os.environ['REDO_TARGET'] = basename + ext
             os.environ['REDO_DEPTH'] = vars.DEPTH + '  '
-            if dn:
-                os.chdir(dn)
+            if dodir:
+                os.chdir(dodir)
             l = logger.Logger(self.log_fd, self.tmp_sout_fd)
             l.fork()
             os.close(self.tmp_sout_fd)
@@ -224,16 +227,16 @@ class BuildJob:
 
     def done(self, t, rv):
         assert self.target.dolock().owned == state.LOCK_EX
-        log_cmd("redo_done", self.target.name + "\n")
+        log_cmd("redo_done", self.target.sourcename + "\n")
         try:
-            after_t = _try_stat(self.target.name)
+            after_t = _try_stat(self.target.targetfile)
             st1 = os.fstat(self.tmp_sout_f.fileno())
             st2 = _try_stat(self.tmpname_arg3)
             
             if (after_t and 
                 (not self.before_t or self.before_t.st_ctime != after_t.st_ctime) and
                 not stat.S_ISDIR(after_t.st_mode)):
-                    err('%s modified %s directly!\n', self.dofile, self.target.name)
+                    err('%s modified %s directly!\n', self.dofile, self.target.sourcename)
                     err('...you should update $3 (a temp file) or stdout, not $1.\n')
                     rv = 206
 
@@ -250,19 +253,19 @@ class BuildJob:
             
             if rv==0:
                 if st2:
-                    os.rename(self.tmpname_arg3, self.target.name)
+                    os.rename(self.tmpname_arg3, self.target.targetfile)
                     os.unlink(self.tmpname_sout)
                 elif vars.OLD_STDOUT and st1.st_size > 0:
                     try:
-                        os.rename(self.tmpname_sout, self.target.name)
+                        os.rename(self.tmpname_sout, self.target.targetfile)
                     except OSError, e:
                         if e.errno == errno.ENOENT:
-                            unlink(self.target.name)
+                            unlink(self.target.targetfile)
                         else:
                             raise
                 else: # no output generated at all; that's ok
                     unlink(self.tmpname_sout)
-                    unlink(self.target.name)
+                    unlink(self.target.targetfile)
                 if vars.VERBOSE or vars.XTRACE or vars.DEBUG:
                     log('%s (done)\n\n', self.target.printable_name())
             else:
@@ -297,10 +300,10 @@ class BuildJob:
                 self._move_extra_results(sp, dp, rv)
             os.rmdir(src)
         else:
-            sf = state.File(name=dest)
+            sf = state.File(srcname=dest)
             if sf == self.delegate:
                 dest = os.path.join(sf.tmpfilename("out"), sf.basename())
-                debug("rename %r %r\n", src, dest)
+                debug("rename to delegated %r %r\n", src, dest)
                 os.rename(src, dest)
                 sf.copy_deps_from(self.target)
             else:
@@ -339,7 +342,7 @@ def build(f, any_errors, should_build, add_dep_to=None, delegate=None, re_do=Tru
             if any_errors[0] and not vars.KEEP_GOING:
                 return False
             f.refresh()
-            debug3('think about building %r\n', f.name)
+            debug3('think about building %r\n', f.sourcename)
             dirty = should_build(f)
             while dirty and dirty != deps.DIRTY:
                 # FIXME: bring back the old (targetname) notation in the output
@@ -371,7 +374,7 @@ def main(targets, should_build = (lambda f: deps.DIRTY), parent=None, delegate=N
 
     try:
         for t in targets:
-            f = state.File(name=t)
+            f = state.File(srcname=t)
             if not build(f, any_errors, should_build, add_dep_to=parent, delegate=delegate, re_do=re_do):
                 break
         jwack.wait_all()

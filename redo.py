@@ -12,6 +12,8 @@ v,verbose  print commands as they are read from .do files (variables intact)
 x,xtrace   print commands as they are executed (variables expanded)
 k,keep-going  keep going as long as possible even if some targets fail
 overwrite  overwrite files even if generated outside of redo
+source-dir= change source directory (current directory by default)
+target-dir= change target directory (current directory by default)
 log        activate log recording (slower)
 only-log   print only failed targets from log
 shuffle    randomize the build order to find dependency bugs
@@ -67,6 +69,11 @@ def read_opts():
         os.environ['REDO_LOG'] = str(opt.log)
     if opt.only_log:
         os.environ['REDO_ONLY_LOG'] = '1'
+    if opt.source_dir:
+        os.environ['REDO_SOURCE_DIR'] = os.path.realpath(opt.source_dir)
+    if opt.target_dir:
+        if not os.path.isdir(opt.target_dir): os.makedirs(opt.target_dir)
+        os.environ['REDO_TARGET_DIR'] = os.path.realpath(opt.target_dir)
     if opt.main:
         redo_flavour = opt.main
 
