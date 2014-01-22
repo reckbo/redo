@@ -49,8 +49,9 @@ def _files(target, seen):
 def files():
     """Return a list of files known to redo, starting in os.getcwd()."""
     seen = {}
-    for depfile in glob.glob('*.deps.redo'):
-        for i in _files(depfile[:-10], seen):
+    depfiles = map(lambda f: os.path.basename(os.path.splitext(f)[0]), glob.glob('.redo/*.deps'))
+    for depfile in depfiles:
+        for i in _files(depfile, seen):
             yield i
 
 # FIXME: I really want to use fcntl F_SETLK, F_SETLKW, etc here.  But python
@@ -369,7 +370,7 @@ class File(object):
             return os.path.realpath(self.name) == os.path.realpath(other.name)
         except:
             return False
-    
+
     def __ne__(self, other):
         return not self.__eq__(other)
 
