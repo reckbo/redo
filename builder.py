@@ -36,7 +36,7 @@ def _possible_do_files(t):
 def _possible_do_files_in_do_dir(t):
     for dodir,dofile,basedir,basename,ext in _possible_do_files(t):
         yield (dodir,dofile,basedir,basename,ext)
-        yield (dodir+"/do", dofile, "../"+basedir, basename, ext)
+        yield (os.path.join(dodir, "do"), dofile, os.path.join("..", basedir), basename, ext)
 
 def _find_do_file(f):
     for dodir,dofile,basedir,basename,ext in _possible_do_files_in_do_dir(f.name):
@@ -74,7 +74,7 @@ def _interpreter_locations(dodir):
     for i in range(len(dirbits), -1, -1):
         d = join('/', dirbits[:i])
         yield(d)
-        yield(d + "/do")
+        yield(os.path.join(d, "do"))
     
 
 def _find_interpreter(dodir, name):
