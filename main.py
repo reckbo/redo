@@ -154,6 +154,24 @@ def main_redo_targets(redo_flavour, targets):
         if f.is_generated and f.exists():
             print f.name
 
+def main_redo_dofile(redo_flavour, targets):
+    import os.path
+    import state, builder
+    
+    res = 0
+    
+    targets = state.fix_chdir(targets)
+    for target in targets:
+        f = state.File(name=target)
+        dodir,dofile,basedir,basename,ext = builder._find_do_file(f)
+        if dodir:
+            print os.path.join(dodir, dofile)
+        else:
+            res = res + 1
+    
+    return res
+      
+
 mains = {
     'redo-sources':  main_redo_sources,
     'redo-targets':  main_redo_targets,
@@ -165,4 +183,5 @@ mains = {
     'redo-delegate': main_redo_delegate,
     'redo-log':      main_redo_log,
     'redo-exec':     main_redo_exec,
+    'redo-dofile':   main_redo_dofile,
     'redo':          main_redo}
