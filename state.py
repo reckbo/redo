@@ -344,11 +344,13 @@ class File(object):
         debug3('add-dep: %r < %r %r\n', self.name, file.stamp, relname)
         assert('\n' not in file.name)
         assert(isinstance(file.stamp, Stamp))
+        assert(file.stamp.csum_or_stamp() is not None)
         self._add('%s %s' % (file.stamp.csum_or_stamp(), relname))
 
     def copy_deps_from(self, other):
         for dep in other.deps:
-            self._add('%s %s' % (dep[0].stamp, dep[1]))
+            assert(dep[0].csum_or_stamp() is not None)
+            self._add('%s %s' % (dep[0].csum_or_stamp(), dep[1]))
 
     def read_stamp(self, runid=None, st=None, st_deps=None):
         # FIXME: make this formula more well-defined
@@ -433,6 +435,7 @@ class Stamp:
         return "%r %r" % (self.stamp, self.csum)
 
     def csum_or_stamp(self):
+        assert(self.csum or self.stamp)
         return self.csum or self.stamp
 
     def is_override_or_missing(self, f):
