@@ -36,7 +36,17 @@ def _possible_do_files(t):
 def _possible_do_files_in_do_dir(t):
     for dodir,dofile,basedir,basename,ext in _possible_do_files(t):
         yield (dodir,dofile,basedir,basename,ext)
-        yield (os.path.join(dodir, "do"), dofile, os.path.join("..", basedir), os.path.join("..", basename), ext)
+
+        dodir2 = os.path.join(dodir, "do")
+        if os.path.islink(dodir2):
+            dodir2 = os.path.realpath(dodir2)
+            d = os.path.relpath(os.path.abspath(dodir), dodir2)
+            basedir2 = os.path.join(d, basedir)
+            basename2= os.path.join(d, basename)
+        else:
+            basedir2 = os.path.join("..", basedir)
+            basename2= os.path.join("..", basename)
+        yield (dodir2, dofile, basedir2, basename2, ext)
 
 def _find_do_file(f):
     for dodir,dofile,basedir,basename,ext in _possible_do_files_in_do_dir(f.name):
