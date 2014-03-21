@@ -56,20 +56,29 @@ redo-ifchange usestamp usestamp2
 [ "$(wc -l <usestamp.log)" -eq 2 ] || exit 62
 [ "$(wc -l <usestamp2.log)" -eq 1 ] || exit 62
 
-# when we delete the file and it gets regenerated identically, it's as good as
-# never having been deleted.  So usestamp won't need to change.
+# when we delete the file, it is marked as never built and everything gets regenerated
 ../flush-cache
 rm -f stampy
 redo-ifchange usestamp usestamp2
 [ "$(wc -l <stampy.log)" -eq 5 ] || exit 71
-[ "$(wc -l <usestamp.log)" -eq 2 ] || exit 72
+[ "$(wc -l <usestamp.log)" -eq 3 ] || exit 72
 [ "$(wc -l <usestamp2.log)" -eq 1 ] || exit 73
+
+# when we delete the file and regenerate it identically, it's as good as
+# never having been deleted.  So usestamp won't need to change.
+../flush-cache
+rm -f stampy
+redo-ifchange stampy
+redo-ifchange usestamp usestamp2
+[ "$(wc -l <stampy.log)" -eq 6 ] || exit 81
+[ "$(wc -l <usestamp.log)" -eq 3 ] || exit 82
+[ "$(wc -l <usestamp2.log)" -eq 1 ] || exit 83
 
 # this simple test used to cause a deadlock.
 ../flush-cache
 rm -f stampy
 redo-ifchange stampy
-[ "$(wc -l <stampy.log)" -eq 6 ] || exit 74
+[ "$(wc -l <stampy.log)" -eq 7 ] || exit 91
 
 # check that a target that depends on two stamped targets (that are marked as
 # always built) won't be redone if neither stamped targets changes
@@ -77,5 +86,5 @@ redo-ifchange stampy
 redo-ifchange ab
 rm -f doing_ab
 redo-ifchange ab
-[ ! -f doing_ab ] || exit 75
+[ ! -f doing_ab ] || exit 92
 
