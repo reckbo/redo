@@ -80,7 +80,7 @@ def main_redo_always(redo_flavour, targets):
 def main_redo_stamp(redo_flavour, targets):
     import os
     import vars, state
-    
+
     if len(targets) > 1:
         err('%s: no arguments expected.\n', redo_flavour)
         return 1
@@ -115,10 +115,47 @@ def main_redo_stamp(redo_flavour, targets):
     f = state.File(vars.TARGET)
     f._add('%s .' % csum)
 
+def main_redo_isuptodate(redo_flavour, targets):
+    import vars, state, deps
+    from log import err, log
+
+    if 'all' in targets:
+        targets.remove('all')
+    if len(targets) != 1:
+        err('%s: only one argument expected.\n', redo_flavour)
+        return 1
+
+    f = state.File(targets[0])
+    if f.is_generated and f.exists() and not deps.isdirty(f, depth='', expect_stamp=f.stamp):
+        log('%s is up to date.\n', f.name)
+        return 0
+    if not f.is_generated and f.exists():
+        log('%s is a source file.\n', f.name)
+        return 0
+    log('%s is not an up to date file.\n', f.name)
+    return 1
+
+def main_redo_filestamp(redo_flavour, targets):
+    import vars, state, deps
+    from log import err, log
+    import os
+
+    if 'all' in targets:
+        targets.remove('all')
+    if len(targets) != 1:
+        err('%s: only one argument expected.\n', redo_flavour)
+
+    #f = state.File(targets[0])
+    st = os.stat(targets[0])
+    print state.Stamp(st = st).stamp
+    return 0
+
 def main_redo_ood(redo_flavour, targets):
     import vars, state, deps
     from log import err
 
+    if 'all' in targets:
+        targets.remove('all')
     if len(targets) != 0:
         err('%s: no arguments expected.\n', redo_flavour)
         return 1
@@ -132,6 +169,8 @@ def main_redo_sources(redo_flavour, targets):
     import state
     from log import err
 
+    if 'all' in targets:
+        targets.remove('all')
     if len(targets) != 0:
         err('%s: no arguments expected.\n', redo_flavour)
         return 1
@@ -157,9 +196,9 @@ def main_redo_targets(redo_flavour, targets):
 def main_redo_dofile(redo_flavour, targets):
     import os.path
     import state, builder
-    
+
     res = 0
-    
+
     targets = state.fix_chdir(targets)
     for target in targets:
         f = state.File(name=target)
@@ -168,11 +207,13 @@ def main_redo_dofile(redo_flavour, targets):
             print os.path.join(dodir, dofile)
         else:
             res = res + 1
-    
+
     return res
-      
+
 
 mains = {
+    'redo-filestamp':  main_redo_filestamp,
+    'redo-isuptodate':  main_redo_isuptodate,
     'redo-sources':  main_redo_sources,
     'redo-targets':  main_redo_targets,
     'redo-ood':      main_redo_ood,

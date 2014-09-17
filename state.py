@@ -2,6 +2,7 @@ import sys, os, errno, glob, stat, fcntl
 import vars
 from helpers import unlink, join, close_on_exec
 from log import warn, err, debug, debug2, debug3
+from os.path import basename, splitext
 
 ALWAYS = '//ALWAYS'   # an invalid filename that is always marked as dirty
 STAMP_DIR = 'dir'     # the stamp of a directory; mtime is unhelpful
@@ -49,8 +50,10 @@ def _files(target, seen):
 def files():
     """Return a list of files known to redo, starting in os.getcwd()."""
     seen = {}
-    for depfile in glob.glob('*.deps.redo'):
-        for i in _files(depfile[:-10], seen):
+    for depfile in glob.glob('.redo/*.deps'):
+        #for i in _files(depfile[:-10], seen):
+        path, ext = splitext(depfile)
+        for i in _files(basename(path), seen):
             yield i
 
 # FIXME: I really want to use fcntl F_SETLK, F_SETLKW, etc here.  But python
@@ -377,7 +380,7 @@ class File(object):
             return os.path.realpath(self.name) == os.path.realpath(other.name)
         except:
             return False
-    
+
     def __ne__(self, other):
         return not self.__eq__(other)
 
